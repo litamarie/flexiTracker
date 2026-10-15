@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#14352e">
+    <meta name="description" content="Offline Norwegian flexitime tracker">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="style.css">
+    <title>flexiTracker</title>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="brand">
+          <span class="brand-icon">◷</span>
+          <span>flexiTracker</span>
+        </div>
+        <span class="pill">Offline • privat</span>
+      </header>
+
+      <section class="balance">
+        <div>BALANCE</div>
+        <strong id="balance">+0h 00m</strong>
+        <span id="balance-label">Since tracking started</span>
+      </section>
+
+      <nav>
+        <button data-tab="calendar" class="active">Calendar</button>
+        <button data-tab="entry">Log day</button>
+        <button data-tab="bulk">Bulk leave</button>
+        <button data-tab="settings">Settings</button>
+      </nav>
+
+      <main>
+        <section id="calendar" class="page">
+          <div class="controls">
+            <button id="prev" aria-label="Previous period">‹</button>
+            <h2 id="period-label"></h2>
+            <button id="next" aria-label="Next period">›</button>
+          </div>
+
+          <div class="subcontrols">
+            <button id="this-period">Today</button>
+            <div class="switch">
+              <button data-view="month" class="active">Month</button>
+              <button data-view="week">Week</button>
+            </div>
+          </div>
+
+          <div class="calendar" id="calendar-grid"></div>
+
+          <div class="legend">
+            <span><i class="dot logged"></i> Logged</span>
+            <span><i class="dot missing"></i> Missing</span>
+            <span><i class="dot leave"></i> Leave</span>
+            <span><i class="dot holiday"></i> Holiday</span>
+          </div>
+
+          <h3>Entries in view</h3>
+          <div id="entry-list"></div>
+          <button class="primary" id="add-today">+ Log today</button>
+        </section>
+
+        <section id="entry" class="page hidden">
+          <h2>Log a day</h2>
+          <form id="day-form">
+            <label>
+              Date
+              <input id="day-date" type="date" required>
+            </label>
+            <label>
+              Type
+              <select id="day-type">
+                <option value="work">Work</option>
+                <option value="vacation">Vacation</option>
+                <option value="sick">Sick leave</option>
+                <option value="flex">Flex day off</option>
+              </select>
+            </label>
+
+            <div id="work-fields">
+              <div class="two">
+                <label>
+                  Arrived
+                  <input type="time" id="day-start" required>
+                </label>
+                <label>
+                  Left
+                  <input type="time" id="day-end" required>
+                </label>
+              </div>
+
+              <label>
+                Unpaid break (minutes)
+                <input type="number" id="day-break" min="0" max="480" step="5" required>
+              </label>
+
+              <div class="hint" id="work-summary"></div>
+            </div>
+
+            <div class="hint" id="day-note"></div>
+
+            <button type="submit" class="primary">Save day</button>
+            <button id="delete-day" type="button" class="danger hidden">Delete saved entry</button>
+          </form>
+        </section>
+
+        <section id="bulk" class="page hidden">
+          <h2>Add multiple days</h2>
+          <form id="bulk-form">
+            <label>
+              Type
+              <select id="bulk-type">
+                <option value="vacation">Vacation</option>
+                <option value="sick">Sick leave</option>
+                <option value="flex">Flex day off</option>
+              </select>
+            </label>
+
+            <div class="two">
+              <label>
+                From
+                <input type="date" id="bulk-from" required>
+              </label>
+              <label>
+                To
+                <input type="date" id="bulk-to" required>
+              </label>
+            </div>
+
+            <p class="hint" id="bulk-preview">Weekends and Norwegian public holidays are skipped.</p>
+            <button class="primary" type="submit">Save days</button>
+          </form>
+        </section>
+
+        <section id="settings" class="page hidden">
+          <h2>Settings</h2>
+          <form id="settings-form">
+            <label>
+              Tracking start date
+              <input type="date" id="setting-date" required>
+            </label>
+            <label>
+              Existing flex balance (minutes, can be negative)
+              <input type="number" id="setting-balance" step="1" required>
+            </label>
+
+            <div class="two">
+              <label>
+                Default arrival
+                <input type="time" id="setting-start" required>
+              </label>
+              <label>
+                Default departure
+                <input type="time" id="setting-end" required>
+              </label>
+            </div>
+
+            <label>
+              Default unpaid break (minutes)
+              <input type="number" id="setting-break" min="0" max="480" required>
+            </label>
+            <label>
+              Required work per weekday (minutes)
+              <input type="number" id="setting-target" min="0" max="1440" required>
+            </label>
+            <label>
+              End of day for marking unlogged *today* as missing
+              <input type="time" id="setting-cutoff" required>
+            </label>
+
+            <p class="hint">
+              Default: 07:00–15:00, 30-minute unpaid lunch, and 450 required minutes/day. Missing past weekdays count as −7h 30m; today counts as missing only after 15:00. Norwegian public holidays and weekends require 0 hours. Christmas Eve/New Year's Eve are treated as regular weekdays unless manually logged as leave.
+            </p>
+
+            <button class="primary" type="submit">Save settings</button>
+          </form>
+
+          <h3>Backup &amp; restore</h3>
+          <button id="export" class="secondary">Export backup (JSON)</button>
+          <label class="import">
+            Import backup (replaces local data)
+            <input type="file" id="import" accept="application/json,.json">
+          </label>
+          <p class="hint">Data stays in this browser on this device. Clearing site data or uninstalling may erase it: export backups regularly.</p>
+        </section>
+      </main>
+
+      <p id="toast" role="status" aria-live="polite"></p>
+    </div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
+
