@@ -1,6 +1,6 @@
 'use strict';
 
-const STORE = 'flexiTracker-v1';
+const STORE = 'flexiTracker-v1.0.1';
 const $ = (id) => document.getElementById(id);
 
 const now = () => {
