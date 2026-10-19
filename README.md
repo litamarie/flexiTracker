@@ -40,5 +40,5 @@ The installed app works without internet.
 - Dates before the tracking start date are ignored in balance calculations; entries can still be logged for them.
 - Files/functions should be more separated, some cleaning is needed.
 
-## Update 19.10
+## Update 1.0.1, 19.10
 Manual input for times in addition to clock. Able to save arrival time before leaving for the day.
