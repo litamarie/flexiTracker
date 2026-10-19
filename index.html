@@ -84,11 +84,19 @@
               <div class="two">
                 <label>
                   Arrived
-                  <input type="time" id="day-start" required>
+                  <span style="display:flex;gap:8px;align-items:center;position:relative">
+                    <input type="text" id="day-start" inputmode="numeric" autocomplete="off" placeholder="0700" required style="min-width:0;flex:1">
+                    <button type="button" id="day-start-clock" class="secondary" aria-label="Choose arrival time" style="flex:0 0 auto">🕒</button>
+                    <input type="time" id="day-start-picker" tabindex="-1" aria-label="Arrival time picker" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none">
+                  </span>
                 </label>
                 <label>
                   Left
-                  <input type="time" id="day-end" required>
+                  <span style="display:flex;gap:8px;align-items:center;position:relative">
+                    <input type="text" id="day-end" inputmode="numeric" autocomplete="off" placeholder="1500" required style="min-width:0;flex:1">
+                    <button type="button" id="day-end-clock" class="secondary" aria-label="Choose departure time" style="flex:0 0 auto">🕒</button>
+                    <input type="time" id="day-end-picker" tabindex="-1" aria-label="Departure time picker" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none">
+                  </span>
                 </label>
               </div>
 
@@ -98,6 +106,8 @@
               </label>
 
               <div class="hint" id="work-summary"></div>
+              <button type="button" class="secondary" id="save-arrival">Save arrival (finish later)</button>
+              <div class="hint" id="arrival-status" role="status"></div>
             </div>
 
             <div class="hint" id="day-note"></div>

@@ -39,3 +39,6 @@ The installed app works without internet.
 - If you change settings, historical balances are recalculated using the new daily target.
 - Dates before the tracking start date are ignored in balance calculations; entries can still be logged for them.
 - Files/functions should be more separated, some cleaning is needed.
+
+## Update 19.10
+Manual input for times in addition to clock. Able to save arrival time before leaving for the day.

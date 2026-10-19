@@ -32,6 +32,7 @@ try {
     state = defaults();
 }
 if (!state.settings || !state.entries) state = defaults();
+if (!state.drafts || typeof state.drafts !== 'object') state.drafts = {};
 
 let cursor = new Date();
 let calendarMode = 'month';
@@ -94,6 +95,26 @@ function holiday(s) {
 }
 
 const nonwork = (s) => weekday(s) === 0 || weekday(s) === 6 || !!holiday(s);
+
+function normalizeTime(value) {
+    const text = String(value ?? '').trim();
+    let hour, minute;
+    if (/^\d{1,2}:\d{1,2}$/.test(text)) {
+        [hour, minute] = text.split(':').map(Number);
+    } else if (/^\d{1,4}$/.test(text)) {
+        if (text.length <= 2) {
+            hour = Number(text);
+            minute = 0;
+        } else {
+            hour = Number(text.slice(0, -2));
+            minute = Number(text.slice(-2));
+        }
+    } else {
+        return null;
+    }
+    return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59
+        ? `${pad(hour)}:${pad(minute)}` : null;
+}
 
 const parseTime = (s) => {
     const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(s || '');
@@ -158,8 +179,9 @@ function openDay(s) {
     $('day-date').value = s;
     const e = state.entries[s];
     $('day-type').value = e?.type || 'work';
-    $('day-start').value = e?.start || state.settings.start;
-    $('day-end').value = e?.end || state.settings.end;
+    const draft = state.drafts[s];
+    $('day-start').value = e?.start || draft?.start || state.settings.start;
+    $('day-end').value = e?.end || (draft ? '' : state.settings.end);
     $('day-break').value = e?.breakMinutes ?? state.settings.breakMinutes;
     renderDay();
     showTab('entry');
@@ -172,10 +194,15 @@ function renderDay() {
 
     $('work-fields').classList.toggle('hidden', type !== 'work');
     $('delete-day').classList.toggle('hidden', !e);
+    const draft = state.drafts[s];
+    $('save-arrival').classList.toggle('hidden', type !== 'work' || !!e);
+    $('arrival-status').textContent = !e && draft
+        ? `Arrival saved for ${formatDate(s)} at ${draft.start}. Finish this day when you leave.`
+        : '';
 
     const minutes =
-        parseTime($('day-end').value) -
-        parseTime($('day-start').value) -
+        parseTime(normalizeTime($('day-end').value)) -
+        parseTime(normalizeTime($('day-start').value)) -
         Number($('day-break').value);
 
     $('work-summary').textContent =
@@ -250,6 +277,7 @@ function renderCalendar() {
         } else {
             const e = state.entries[s];
             if (e) el.classList.add(e.type === 'work' ? 'logged' : 'leave');
+            else if (state.drafts[s]) el.classList.add('draft');
             else if (holiday(s)) el.classList.add('holiday');
             else if (nonwork(s)) el.classList.add('weekend');
             else if (eligible(s)) el.classList.add('missing');
@@ -257,7 +285,7 @@ function renderCalendar() {
             if (s === now()) el.classList.add('today');
 
             el.innerHTML = `<span>${Number(s.slice(-2))}</span><i class="dot ${e ? (e.type === 'work' ? 'logged' : 'leave') : holiday(s) ? 'holiday' : eligible(s) && !nonwork(s) ? 'missing' : ''}"></i>`;
-            el.title = holiday(s) || e?.type || (eligible(s) && !nonwork(s) ? 'Unlogged' : '');
+            el.title = e?.type || (state.drafts[s] ? 'Arrival saved (unfinished)' : '') || holiday(s) || (eligible(s) && !nonwork(s) ? 'Unlogged' : '');
             el.onclick = () => openDay(s);
         }
 
@@ -272,7 +300,7 @@ function renderCalendar() {
         const e = state.entries[s];
         const miss = !e && eligible(s) && !nonwork(s);
 
-        if (!e && !miss) continue;
+        if (!e && !miss && !state.drafts[s]) continue;
 
         found++;
         const row = document.createElement('div');
@@ -281,8 +309,13 @@ function renderCalendar() {
         const left = document.createElement('div');
         const right = document.createElement('strong');
 
-        left.textContent = `${s} · ${e ? { work: 'Work', vacation: 'Vacation', sick: 'Sick leave', flex: 'Flex day off' }[e.type] : 'Missing entry'}`;
+        left.textContent = `${s} · ${e ? { work: 'Work', vacation: 'Vacation', sick: 'Sick leave', flex: 'Flex day off' }[e.type] : (state.drafts[s] ? 'Arrival saved (unfinished)' : 'Missing entry')}`;
 
+        if (!e && state.drafts[s]) {
+            const detail = document.createElement('small');
+            detail.textContent = `Arrived ${state.drafts[s].start} · departure not logged`;
+            left.append(detail);
+        }
         if (e?.type === 'work') {
             const detail = document.createElement('small');
             detail.textContent = `${e.start}–${e.end}, ${e.breakMinutes} min break`;
@@ -342,8 +375,12 @@ $('day-form').onsubmit = (e) => {
     const entry = { type };
 
     if (type === 'work') {
-        const start = $('day-start').value;
-        const end = $('day-end').value;
+        const start = normalizeTime($('day-start').value);
+        const end = normalizeTime($('day-end').value);
+        if (!start || !end) {
+            notify('Enter a valid time (for example 730 or 15:00)');
+            return;
+        }
         const breakMinutes = Number($('day-break').value);
         const duration = parseTime(end) - parseTime(start);
 
@@ -362,6 +399,7 @@ $('day-form').onsubmit = (e) => {
     }
 
     state.entries[s] = entry;
+    delete state.drafts[s];
     persist();
     renderBalance();
     showTab('calendar');
@@ -373,6 +411,7 @@ $('delete-day').onclick = () => {
     if (!state.entries[s] || !confirm(`Delete entry on ${s}?`)) return;
 
     delete state.entries[s];
+    delete state.drafts[s];
     persist();
     showTab('calendar');
     notify('Entry deleted');
@@ -439,7 +478,10 @@ $('bulk-form').onsubmit = (e) => {
     const existing = targets.filter((s) => state.entries[s]).length;
     if (!confirm(`Save ${type} for ${targets.length} working days?${existing ? ` This will replace ${existing} existing entries.` : ''}`)) return;
 
-    for (const s of targets) state.entries[s] = { type };
+    for (const s of targets) {
+        state.entries[s] = { type };
+        delete state.drafts[s];
+    }
     persist();
     showTab('calendar');
     notify(`${targets.length} days saved`);
@@ -496,6 +538,7 @@ $('import').onchange = async (e) => {
         if (!confirm('Replace all local entries and settings with this backup?')) return;
 
         state = s;
+        if (!state.drafts || typeof state.drafts !== 'object') state.drafts = {};
         persist();
         renderBalance();
         showTab('calendar');
@@ -539,6 +582,49 @@ $('add-today').onclick = () => openDay(now());
 $('day-date').onchange = () => openDay($('day-date').value);
 
 for (const id of ['day-type', 'day-start', 'day-end', 'day-break']) $(id).oninput = renderDay;
+
+for (const id of ['day-start', 'day-end']) {
+    $(id).addEventListener('blur', () => {
+        const normalized = normalizeTime($(id).value);
+        if (normalized) $(id).value = normalized;
+        renderDay();
+    });
+}
+
+for (const field of ['start', 'end']) {
+    const picker = $(`day-${field}-picker`);
+    const input = $(`day-${field}`);
+    $(`day-${field}-clock`).onclick = () => {
+        picker.value = normalizeTime(input.value) || (field === 'start' ? state.settings.start : state.settings.end);
+        try {
+            if (typeof picker.showPicker === 'function') picker.showPicker();
+            else picker.click();
+        } catch {
+            picker.focus();
+            picker.click();
+        }
+    };
+    picker.oninput = () => {
+        if (picker.value) {
+            input.value = picker.value;
+            renderDay();
+        }
+    };
+}
+
+$('save-arrival').onclick = () => {
+    const date = $('day-date').value;
+    const start = normalizeTime($('day-start').value);
+    if (!date || !start || $('day-type').value !== 'work' || state.entries[date]) {
+        notify('Choose an unsaved workday and a valid arrival time');
+        return;
+    }
+    state.drafts[date] = { start };
+    $('day-start').value = start;
+    persist();
+    renderDay();
+    notify('Arrival saved — finish logging when you leave');
+};
 for (const id of ['bulk-from', 'bulk-to']) $(id).onchange = renderBulkPreview;
 
 $('day-date').value = now();
